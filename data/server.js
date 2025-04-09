@@ -51,42 +51,35 @@ app.get("/api/services", async (req, res) => {
 async function generatePDF(data) {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument();
-    const buffers = [];
+    const buffers = []; // Здесь будем накапливать данные PDF
     
     doc.on('data', buffers.push.bind(buffers));
     doc.on('end', () => resolve(Buffer.concat(buffers)));
-    const stream = fs.createWriteStream(filePath);
     
-    doc.pipe(stream);
+    // Установка шрифта
+    doc.font(join(__dirname, 'fonts', 'Roboto-Bold.ttf'));
 
-    const fontPath = join(__dirname, 'fonts', 'Roboto-Bold.ttf');
-    doc.font(fontPath);
-
-    // Заголовок
+    // Формирование PDF
     doc.fontSize(20).text('Химчистка "Белоснежка"', { align: 'center' });
     doc.moveDown();
     
-    // Информация о заявке
     doc.fontSize(14).text('Чек заявки', { align: 'center' });
     doc.moveDown();
     
     doc.fontSize(12).text(`Дата создания: ${new Date(data.creationDate).toLocaleString('ru-RU')}`);
     doc.text(`Дата возврата: ${new Date(data.returnDate).toLocaleString('ru-RU')}`);
-    doc.text(`Ваш телефон: ${data.phone}`);
+    doc.text(`Телефон: ${data.phone}`);
     doc.moveDown();
     
-    // Услуги
     doc.fontSize(14).text('Выбранные услуги:');
     data.services.forEach(service => {
       doc.text(`- ${service.Наименование}: ${service.Цена} руб.`);
     });
     doc.moveDown();
     
-    // Итого
     doc.fontSize(16).text(`Итого: ${data.totalPrice} руб.`, { align: 'right' });
     doc.moveDown();
     
-    // Подпись
     doc.fontSize(12).text('Спасибо за ваш заказ!', { align: 'center' });
     doc.fontSize(12).text('Связь с нами @wladgraft', { align: 'center' });
     
@@ -94,12 +87,16 @@ async function generatePDF(data) {
   });
 }
 
-
 // Создание заявки
 app.post('/api/requests', async (req, res) => {
   try {
     const { userId, phone, services, totalPrice } = req.body;
     
+    // Валидация данных
+    if (!userId || !phone || !services || !totalPrice) {
+      return res.status(400).json({ error: "Не все обязательные поля заполнены" });
+    }
+
     // Форматируем даты
     const creationDate = new Date().toISOString();
     const returnDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -117,7 +114,7 @@ app.post('/api/requests', async (req, res) => {
     await db.query(
       `INSERT INTO Заявки 
        (ID_Пользователя, Телефон, Цена, ДатаПриема, ДатаВозврата, ВыбранныеУслуги)
-       VALUES (?, ?, ?, ?, ?, ?)` ,
+       VALUES (?, ?, ?, ?, ?, ?)`,
       [
         userId,
         phone,
