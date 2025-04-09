@@ -23,7 +23,7 @@ const db = mysql.createPool({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   port: process.env.DB_PORT || 3306,
-  ssl: { rejectUnauthorized: true } // Для db4free
+  ssl: { rejectUnauthorized: false } // Для db4free
 });
 
 // Проверка подключения к БД при старте
