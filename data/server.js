@@ -88,26 +88,23 @@ async function generatePDF(data) {
 }
 
 // Создание заявки
-app.post('/api/requests', async (req, res) => {
+app.post("/api/requests", async (req, res) => {
   try {
     const { userId, phone, services, totalPrice } = req.body;
     
-    // Валидация данных
-    if (!userId || !phone || !services || !totalPrice) {
-      return res.status(400).json({ error: "Не все обязательные поля заполнены" });
-    }
-
     // Форматируем даты
     const creationDate = new Date().toISOString();
-    const returnDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const returnDate = new Date(
+      Date.now() + 7 * 24 * 60 * 60 * 1000
+    ).toISOString();
 
-    // Генерируем PDF в память
+    // Генерируем PDF в память (без сохранения на диск)
     const pdfBuffer = await generatePDF({
       creationDate,
       returnDate,
       phone,
       services,
-      totalPrice
+      totalPrice,
     });
 
     // Сохраняем заявку в БД
@@ -119,22 +116,30 @@ app.post('/api/requests', async (req, res) => {
         userId,
         phone,
         totalPrice,
-        creationDate.replace('T', ' ').replace(/\..+/, ''),
-        returnDate.replace('T', ' ').replace(/\..+/, ''),
-        JSON.stringify(services)
+        creationDate.replace("T", " ").replace(/\..+/, ""),
+        returnDate.replace("T", " ").replace(/\..+/, ""),
+        JSON.stringify(services),
       ]
     );
 
-    // Отправляем PDF клиенту
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'attachment; filename="заявка.pdf"');
-    res.send(pdfBuffer);
+    // Формируем имя файла с датой
+    const filename = `заявка_${new Date().toISOString().slice(0, 10).replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`;
 
+    // Устанавливаем заголовки для скачивания
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+
+    // Отправка файла
+    const pdfStream = new Readable();
+    pdfStream.push(pdfBuffer);
+    pdfStream.push(null); // Закрытие потока
+    pdfStream.pipe(res); // Отправка PDF через поток
   } catch (error) {
-    console.error('Ошибка:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
+    console.error("Ошибка при отправке PDF:", error);
+    res.status(500).send("Ошибка на сервере");
   }
 });
+
 
 // Получение всех заявок с учетом скидки
 app.get("/api/admin/requests", async (req, res) => {
