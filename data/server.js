@@ -47,7 +47,7 @@ app.get("/api/services", async (req, res) => {
   }
 });
 
-// Функция для генерации PDF (без записи на диск)
+// Функция для генерации PDF
 async function generatePDF(data) {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument();
@@ -56,7 +56,8 @@ async function generatePDF(data) {
     doc.on('data', buffers.push.bind(buffers));
     doc.on('end', () => resolve(Buffer.concat(buffers)));
     
-    doc.pipe(stream);
+    // Просто собираем PDF в память
+    doc.pipe(res); // Если хотите сразу отправить в ответ
 
     const fontPath = join(__dirname, 'fonts', 'Roboto-Bold.ttf');
     doc.font(fontPath);
@@ -92,6 +93,7 @@ async function generatePDF(data) {
     doc.end();
   });
 }
+
 
 // Обновленный обработчик запроса
 app.post('/api/requests', async (req, res) => {
