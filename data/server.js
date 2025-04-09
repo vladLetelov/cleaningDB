@@ -125,9 +125,12 @@ app.post("/api/requests", async (req, res) => {
     // Формируем имя файла с датой
     const filename = `заявка_${new Date().toISOString().slice(0, 10).replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`;
 
+    // Кодируем имя файла для безопасной передачи в заголовках
+    const encodedFilename = encodeURIComponent(filename);
+
     // Устанавливаем заголовки для скачивания
     res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.setHeader("Content-Disposition", `attachment; filename="${encodedFilename}"`);
 
     // Отправка файла
     const pdfStream = new Readable();
