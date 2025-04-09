@@ -47,15 +47,14 @@ app.get("/api/services", async (req, res) => {
   }
 });
 
-// Функция для генерации PDF
+// Функция для генерации PDF (без записи на диск)
 async function generatePDF(data) {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument();
-    const buffers = [];
+    const buffers = []; // Здесь будем накапливать данные PDF
     
     doc.on('data', buffers.push.bind(buffers));
     doc.on('end', () => resolve(Buffer.concat(buffers)));
-    const stream = fs.createWriteStream(filePath);
     
     doc.pipe(stream);
 
@@ -72,7 +71,7 @@ async function generatePDF(data) {
     
     doc.fontSize(12).text(`Дата создания: ${new Date(data.creationDate).toLocaleString('ru-RU')}`);
     doc.text(`Дата возврата: ${new Date(data.returnDate).toLocaleString('ru-RU')}`);
-    doc.text(`Ваш телефон: ${data.phone}`);
+    doc.text(`Телефон: ${data.phone}`);
     doc.moveDown();
     
     // Услуги
@@ -94,8 +93,7 @@ async function generatePDF(data) {
   });
 }
 
-
-// Создание заявки
+// Обновленный обработчик запроса
 app.post('/api/requests', async (req, res) => {
   try {
     const { userId, phone, services, totalPrice } = req.body;
@@ -104,7 +102,7 @@ app.post('/api/requests', async (req, res) => {
     const creationDate = new Date().toISOString();
     const returnDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    // Генерируем PDF в память
+    // Генерируем PDF в память (без сохранения на диск)
     const pdfBuffer = await generatePDF({
       creationDate,
       returnDate,
@@ -117,7 +115,7 @@ app.post('/api/requests', async (req, res) => {
     await db.query(
       `INSERT INTO Заявки 
        (ID_Пользователя, Телефон, Цена, ДатаПриема, ДатаВозврата, ВыбранныеУслуги)
-       VALUES (?, ?, ?, ?, ?, ?)` ,
+       VALUES (?, ?, ?, ?, ?, ?)`,
       [
         userId,
         phone,
