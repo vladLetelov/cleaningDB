@@ -1,7 +1,7 @@
 import express from "express";
 import mysql from "mysql2/promise";
 import cors from "cors";
-import fs from "fs";
+const { Readable } = require("stream");
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import PDFDocument from 'pdfkit';
@@ -142,7 +142,6 @@ app.post("/api/requests", async (req, res) => {
     res.status(500).send("Ошибка на сервере");
   }
 });
-
 
 // Получение всех заявок с учетом скидки
 app.get("/api/admin/requests", async (req, res) => {
