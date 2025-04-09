@@ -1,12 +1,10 @@
 import express from "express";
 import mysql from "mysql2/promise";
 import cors from "cors";
-const fs = require("fs");
-const path = require("path");
-import { fileURLToPath } from "url";
-import { dirname, join } from "path";
-import PDFDocument from "pdfkit";
-const pdf = require('pdfkit'); // Импортируем библиотеку для генерации PDF
+import fs from "fs";
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+import PDFDocument from 'pdfkit';
 
 // Получаем текущий путь к файлу
 const __filename = fileURLToPath(import.meta.url);
@@ -25,7 +23,7 @@ const db = mysql.createPool({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   port: process.env.DB_PORT || 3306,
-  ssl: { rejectUnauthorized: false }, // Для db4free
+  ssl: { rejectUnauthorized: false } // Для db4free
 });
 
 // Проверка подключения к БД при старте
@@ -53,94 +51,91 @@ app.get("/api/services", async (req, res) => {
 async function generatePDF(data) {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument();
-    const buffers = []; // Здесь будем накапливать данные PDF
+    const buffers = [];
+    
+    doc.on('data', buffers.push.bind(buffers));
+    doc.on('end', () => resolve(Buffer.concat(buffers)));
+    const stream = fs.createWriteStream(filePath);
+    
+    doc.pipe(stream);
 
-    // Собираем данные в буфер
-    doc.on("data", buffers.push.bind(buffers));
-    doc.on("end", () => resolve(Buffer.concat(buffers)));
-
-    const fontPath = join(__dirname, "fonts", "Roboto-Bold.ttf");
+    const fontPath = join(__dirname, 'fonts', 'Roboto-Bold.ttf');
     doc.font(fontPath);
 
     // Заголовок
-    doc.fontSize(20).text('Химчистка "Белоснежка"', { align: "center" });
+    doc.fontSize(20).text('Химчистка "Белоснежка"', { align: 'center' });
     doc.moveDown();
-
+    
     // Информация о заявке
-    doc.fontSize(14).text("Чек заявки", { align: "center" });
+    doc.fontSize(14).text('Чек заявки', { align: 'center' });
     doc.moveDown();
-
-    doc
-      .fontSize(12)
-      .text(
-        `Дата создания: ${new Date(data.creationDate).toLocaleString("ru-RU")}`
-      );
-    doc.text(
-      `Дата возврата: ${new Date(data.returnDate).toLocaleString("ru-RU")}`
-    );
-    doc.text(`Телефон: ${data.phone}`);
+    
+    doc.fontSize(12).text(`Дата создания: ${new Date(data.creationDate).toLocaleString('ru-RU')}`);
+    doc.text(`Дата возврата: ${new Date(data.returnDate).toLocaleString('ru-RU')}`);
+    doc.text(`Ваш телефон: ${data.phone}`);
     doc.moveDown();
-
+    
     // Услуги
-    doc.fontSize(14).text("Выбранные услуги:");
-    data.services.forEach((service) => {
+    doc.fontSize(14).text('Выбранные услуги:');
+    data.services.forEach(service => {
       doc.text(`- ${service.Наименование}: ${service.Цена} руб.`);
     });
     doc.moveDown();
-
+    
     // Итого
-    doc.fontSize(16).text(`Итого: ${data.totalPrice} руб.`, { align: "right" });
+    doc.fontSize(16).text(`Итого: ${data.totalPrice} руб.`, { align: 'right' });
     doc.moveDown();
-
+    
     // Подпись
-    doc.fontSize(12).text("Спасибо за ваш заказ!", { align: "center" });
-    doc.fontSize(12).text("Связь с нами @wladgraft", { align: "center" });
-
+    doc.fontSize(12).text('Спасибо за ваш заказ!', { align: 'center' });
+    doc.fontSize(12).text('Связь с нами @wladgraft', { align: 'center' });
+    
     doc.end();
   });
 }
 
-// Обновленный обработчик запроса
-app.post("/api/requests", async (req, res) => {
+
+// Создание заявки
+app.post('/api/requests', async (req, res) => {
   try {
     const { userId, phone, services, totalPrice } = req.body;
+    
     // Форматируем даты
     const creationDate = new Date().toISOString();
-    const returnDate = new Date(
-      Date.now() + 7 * 24 * 60 * 60 * 1000
-    ).toISOString();
+    const returnDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
     // Генерируем PDF в память
-    const doc = new pdf();
-    const pdfStream = new stream.PassThrough();
-
-    // Пайпим PDF в поток
-    doc.pipe(pdfStream);
-
-    // Добавляем информацию в PDF
-    doc.fontSize(16).text(`Заявка на услугу`);
-    doc.fontSize(12).text(`Дата создания: ${creationDate}`);
-    doc.text(`Дата возврата: ${returnDate}`);
-    doc.text(`Телефон: ${phone}`);
-    doc.text(`Итоговая цена: ${totalPrice} руб.`);
-    doc.text(`Выбранные услуги:`);
-    services.forEach(service => {
-      doc.text(`- ${service.Наименование} (${service.Цена} руб.)`);
+    const pdfBuffer = await generatePDF({
+      creationDate,
+      returnDate,
+      phone,
+      services,
+      totalPrice
     });
 
-    doc.end(); // Завершаем создание PDF
+    // Сохраняем заявку в БД
+    await db.query(
+      `INSERT INTO Заявки 
+       (ID_Пользователя, Телефон, Цена, ДатаПриема, ДатаВозврата, ВыбранныеУслуги)
+       VALUES (?, ?, ?, ?, ?, ?)` ,
+      [
+        userId,
+        phone,
+        totalPrice,
+        creationDate.replace('T', ' ').replace(/\..+/, ''),
+        returnDate.replace('T', ' ').replace(/\..+/, ''),
+        JSON.stringify(services)
+      ]
+    );
 
-    const fileName = "заявка.pdf".replace(/[^a-zA-Z0-9.-_]/g, "_"); // Экранем или заменяем запрещенные символы в имени файла
+    // Отправляем PDF клиенту
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename="заявка.pdf"');
+    res.send(pdfBuffer);
 
-    // Устанавливаем заголовки для скачивания
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
-
-    // Пайпим поток данных PDF в ответ
-    pdfStream.pipe(res);
   } catch (error) {
-    console.error("Ошибка при отправке PDF:", error);
-    res.status(500).send("Ошибка на сервере");
+    console.error('Ошибка:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 
