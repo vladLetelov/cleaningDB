@@ -1,7 +1,7 @@
 import express from "express";
 import mysql from "mysql2/promise";
 import cors from "cors";
-const { Readable } = require("stream");
+import { Readable } from "stream";
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import PDFDocument from 'pdfkit';
