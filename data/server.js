@@ -47,17 +47,15 @@ app.get("/api/services", async (req, res) => {
   }
 });
 
-// Функция для генерации PDF
+// Функция для генерации PDF 
 async function generatePDF(data) {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument();
     const buffers = []; // Здесь будем накапливать данные PDF
-    
+
+    // Собираем данные в буфер
     doc.on('data', buffers.push.bind(buffers));
     doc.on('end', () => resolve(Buffer.concat(buffers)));
-    
-    // Просто собираем PDF в память
-    doc.pipe(res); // Если хотите сразу отправить в ответ
 
     const fontPath = join(__dirname, 'fonts', 'Roboto-Bold.ttf');
     doc.font(fontPath);
@@ -65,41 +63,39 @@ async function generatePDF(data) {
     // Заголовок
     doc.fontSize(20).text('Химчистка "Белоснежка"', { align: 'center' });
     doc.moveDown();
-    
+
     // Информация о заявке
     doc.fontSize(14).text('Чек заявки', { align: 'center' });
     doc.moveDown();
-    
+
     doc.fontSize(12).text(`Дата создания: ${new Date(data.creationDate).toLocaleString('ru-RU')}`);
     doc.text(`Дата возврата: ${new Date(data.returnDate).toLocaleString('ru-RU')}`);
     doc.text(`Телефон: ${data.phone}`);
     doc.moveDown();
-    
+
     // Услуги
     doc.fontSize(14).text('Выбранные услуги:');
     data.services.forEach(service => {
       doc.text(`- ${service.Наименование}: ${service.Цена} руб.`);
     });
     doc.moveDown();
-    
+
     // Итого
     doc.fontSize(16).text(`Итого: ${data.totalPrice} руб.`, { align: 'right' });
     doc.moveDown();
-    
+
     // Подпись
     doc.fontSize(12).text('Спасибо за ваш заказ!', { align: 'center' });
     doc.fontSize(12).text('Связь с нами @wladgraft', { align: 'center' });
-    
+
     doc.end();
   });
 }
-
 
 // Обновленный обработчик запроса
 app.post('/api/requests', async (req, res) => {
   try {
     const { userId, phone, services, totalPrice } = req.body;
-    
     // Форматируем даты
     const creationDate = new Date().toISOString();
     const returnDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
